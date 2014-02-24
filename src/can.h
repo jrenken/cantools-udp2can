@@ -80,10 +80,19 @@ int can_readMessage(int fd, struct TCANMsg* msg);
  */
 int can_readMessageT(int fd, struct TCANMsgT* msg);
 
+/* Dump the status to stdout
+ *
+ */
 void can_dumpStatus(unsigned char status);
 
+/* Dump a timeless messeage to stdout
+ *
+ */
 void can_dumpMessage(struct TCANMsg *msg, unsigned char mode);
 
+/* Dump ap long message to stdout
+ *
+ */
 void can_dumpMessageT(struct TCANMsgT *msg, unsigned char mode);
 
 #endif /* CAN_H_ */

@@ -100,13 +100,26 @@ void testCan(void)
 }
 
 
+void testUdp()
+{
+	int i;
+	udp_setDebug(1);
+	int fd = udp_openSocket(10510);
+	udp_setTarget("localhost", 20000);
 
+	for (i = 0; i < 100; i++) {
+		udp_sendDatagram(fd, "Hallo\n", 6);
+	}
+	usleep(2000000);
+	close(fd);
+}
 
 int main(void) {
 
 	can_setDebug(1);
 
 	puts("!!!Hello World!!!"); /* prints !!!Hello World!!! */
-	testCan();
+//	testCan();
+	testUdp();
 	return EXIT_SUCCESS;
 }
