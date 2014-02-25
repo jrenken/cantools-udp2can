@@ -18,16 +18,18 @@
 
 #define UDP_DEBUG(format, ...)		if (udpDebug) { fprintf(stderr, format, ##__VA_ARGS__); }
 
-int udpDebug = 0;
-struct sockaddr udpTarget;
-socklen_t		udpTargetAddrLen = 0;
+int 				udpDebug = 0;
+int 				udpRespond = 1;
+
+struct sockaddr		udpTarget;
+socklen_t			udpTargetAddrLen = 0;
 
 void udp_setDebug(int debug)
 {
 	udpDebug = debug;
 }
 
-int udp_openSocket(unsigned short port)
+int udp_openSocket(unsigned short port, int bcast)
 {
 	int fd;
 	struct sockaddr_in saddr, baddr;
@@ -35,6 +37,13 @@ int udp_openSocket(unsigned short port)
 	if((fd = socket(PF_INET, SOCK_DGRAM, 0)) < 0) {
 		UDP_DEBUG("can't create UDP socket:%d: %s\n", errno, strerror(errno))
 		return fd;
+	}
+	if (bcast == 1) {
+		int broadcastEnable = 1;
+
+		if (setsockopt(fd, SOL_SOCKET, SO_BROADCAST, &broadcastEnable, sizeof(broadcastEnable)) < 0) {
+			UDP_DEBUG("Can't set broadcast enable:%d : %s\n", errno, strerror(errno))
+		}
 	}
 
 	saddr.sin_family = AF_INET;
@@ -73,6 +82,7 @@ int udp_setTarget(const char* host, unsigned short port)
 	memcpy( &udpTarget, result->ai_addr, result->ai_addrlen);
 	udpTargetAddrLen = result->ai_addrlen;
     freeaddrinfo(result);
+    udpRespond = 0;
     return 0;
 }
 
@@ -87,31 +97,18 @@ int udp_sendDatagram(int fd, void* data, size_t len)
 	return ret;
 }
 
-//        struct addrinfo *result;
-//        string port_as_string = boost::lexical_cast<string>(port);
-//        int ret = getaddrinfo(NULL, port_as_string.c_str(), &hints, &result);
-//        if (ret != 0)
-//            throw UnixError("cannot resolve server port " + port_as_string);
-//
-//        int sfd = -1;
-//        struct addrinfo *rp;
-//        for (rp = result; rp != NULL; rp = rp->ai_next) {
-//            sfd = socket(rp->ai_family, rp->ai_socktype,
-//                    rp->ai_protocol);
-//            if (sfd == -1)
-//                continue;
-//
-//            if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
-//                break;                  /* Success */
-//
-//            ::close(sfd);
-//        }
-//        freeaddrinfo(result);
-//
-//        if (rp == NULL)
-//            throw UnixError("cannot open server socket on port " + port_as_string);
-//
-//        setMainStream(new UDPServerStream(sfd,true));
-//
-//
-//
+int udp_readDatagram(int fd, void* data, size_t len)
+{
+	ssize_t	res = 0;
+
+	if (udpRespond) {
+		res = recvfrom(fd, data, len, 0, &udpTarget, &udpTargetAddrLen);
+	} else {
+		res = recv(fd, data, len, 0);
+	}
+	if (res < 0) {
+		UDP_DEBUG("can't read data:%d: %s\n", errno, strerror(errno))
+	}
+	return res;
+}
+

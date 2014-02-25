@@ -8,12 +8,57 @@
 #ifndef CAN_H_
 #define CAN_H_
 
+#include <sys/types.h>
 #include "can_driver.h"
+
+
+
+/* special address description flags for the CAN_ID */
+#define CAN_EFF_FLAG 0x80000000U /* EFF/SFF is set in the MSB */
+#define CAN_RTR_FLAG 0x40000000U /* remote transmission request */
+#define CAN_ERR_FLAG 0x20000000U /* error frame */
+
+/* valid bits in CAN ID for frame formats */
+#define CAN_SFF_MASK 0x000007FFU /* standard frame format (SFF) */
+#define CAN_EFF_MASK 0x1FFFFFFFU /* extended frame format (EFF) */
+#define CAN_ERR_MASK 0x1FFFFFFFU /* omit EFF, RTR, ERR flags */
+
 
 
 
 #define AUTO_LED_ON		128
 #define AUTO_LED_OFF		64
+
+
+/*
+ * Controller Area Network Identifier structure
+ *
+ * bit 0-28	: CAN identifier (11/29 bit)
+ * bit 29	: error frame flag (0 = data frame, 1 = error frame)
+ * bit 30	: remote transmission request flag (1 = rtr frame)
+ * bit 31	: frame format flag (0 = standard 11 bit, 1 = extended 29 bit)
+ */
+typedef __uint32_t canid_t;
+
+/*
+ * Controller Area Network Error Frame Mask structure
+ *
+ * bit 0-28	: error class mask (see include/linux/can/error.h)
+ * bit 29-31	: set to zero
+ */
+typedef __uint32_t can_err_mask_t;
+
+/**
+ * struct can_frame - basic CAN frame structure
+ * @can_id:  the CAN ID of the frame and CAN_*_FLAG flags, see above.
+ * @can_dlc: the data length field of the CAN frame
+ * @data:    the CAN frame payload.
+ */
+struct can_frame {
+	canid_t 	can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
+	__uint8_t   can_dlc; /* data length code: 0 .. 8 */
+	__uint8_t   data[8] __attribute__((aligned(8)));
+};
 
 
 
@@ -49,6 +94,26 @@ int can_getDriverInfo(int fd, struct DriverInfo * info);
  *
  */
 int can_setOnOff(int fd, unsigned char on);
+
+/*
+ *
+ */
+int can_Reset(int fd);
+
+/*
+ *
+ */
+int can_setFastMode(int fd, unsigned char mode);
+
+/*
+ *
+ */
+int can_setHighSpeed(int fd, unsigned char mode);
+
+/*
+ *
+ */
+int can_setTermination(int fd, unsigned char term);
 
 /* Set the debug LEDs
  *

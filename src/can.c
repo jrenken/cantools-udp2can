@@ -106,6 +106,14 @@ int can_setOnOff(int fd, unsigned char on)
 	return ret;
 }
 
+
+int can_Reset(int fd)
+{
+	can_setOnOff(fd, 0);
+	usleep(500000);
+	can_setOnOff(fd, 1);
+}
+
 int can_setLed(int fd, unsigned char led)
 {
 	int ret;
@@ -124,6 +132,29 @@ int can_setLed(int fd, unsigned char led)
 	return ret;
 }
 
+int can_setFastMode(int fd, unsigned char mode)
+{
+	int ret = ioctl(fd, CAN_SET_FASTMODE, mode);
+	if (ret < 0) {
+		CAN_DEBUG("can't set FastMode:%d: %s\n", errno, strerror(errno));
+	}
+}
+
+int can_setHighSpeed(int fd, unsigned char mode)
+{
+	int ret = ioctl(fd, CAN_SET_HIGHSPEED, mode);
+	if (ret < 0) {
+		CAN_DEBUG("can't set HighSpeed:%d: %s\n", errno, strerror(errno));
+	}
+}
+
+int can_setTermination(int fd, unsigned char term)
+{
+	int ret = ioctl(fd, CAN_SET_120OHM, term);
+	if (ret < 0) {
+		CAN_DEBUG("can't set Termination:%d: %s\n", errno, strerror(errno));
+	}
+}
 
 int can_sendMessage(int fd, struct TCANMsg *msg)
 {
@@ -183,7 +214,7 @@ int can_readMessageT(int fd, struct TCANMsgT* msg)
 		if (ret == sizeof(*msg)) {
 			return ret;
 		} else {
-			CAN_DEBUG("reading message failed:%d: %s", errno, strerror(errno));
+			CAN_DEBUG("reading can message failed:%d: %s\n", errno, strerror(errno));
 		}
 	}
 	return ret;
