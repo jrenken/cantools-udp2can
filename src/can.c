@@ -110,7 +110,7 @@ int can_setOnOff(int fd, unsigned char on)
 int can_Reset(int fd)
 {
 	can_setOnOff(fd, 0);
-	usleep(500000);
+	usleep(1000000);
 	can_setOnOff(fd, 1);
 }
 
@@ -222,15 +222,15 @@ int can_readMessageT(int fd, struct TCANMsgT* msg)
 
 void can_dumpStatus(unsigned char status)
 {
-	if ( (status & 0xFC) != CAN_ERR_OK) {
+	if ( (status & 0x3F) != CAN_ERR_OK) {
 		printf("CAN-Error %02X: ", status);
-		status &= 0xFC;
+		status &= 0x3F;
+		if (status & CAN_ERR_XMTFULL)              printf(" XMIT FULL");
 		if (status & CAN_ERR_OVERRUN)              printf(" OVERRUN");
 		if (status & CAN_ERR_BUSERROR)             printf(" BUSERROR");
 		if (status & CAN_ERR_BUSOFF)               printf(" BUSOFF");
 		if (status & CAN_ERR_RECEIVEBUF_OVERFLOW)  printf(" RECEIVEBUF_OVERFLOW");
 		if (status & CAN_ERR_TRANSMITBUF_OVERFLOW) printf(" TRANSMITBUF_OVERFLOW");
-
 		printf("\n");
 	} else {
 		printf("CAN ok\n");

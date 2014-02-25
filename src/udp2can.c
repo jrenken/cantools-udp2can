@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/select.h>
+#include <sys/time.h>
 
 #include "can.h"
 #include "can_driver.h"
@@ -315,6 +316,29 @@ int initUDPSocket()
 	return 0;
 }
 
+void createErrorFrame(struct can_frame * frame, unsigned char status)
+{
+	int i;
+	frame->can_id = CAN_ERR_FLAG;
+	frame->can_dlc = 8;
+	for (i = 0; i < 8; i++) frame->data[i] = 0;
+	if (status & CAN_ERR_OVERRUN) {
+		frame->can_id |= CAN__ERR_CRTL;
+		frame->data[1] |= CAN__ERR_CRTL_RX_OVERFLOW;
+	}
+	if (status & CAN_ERR_BUSERROR)             frame->can_id |= CAN__ERR_BUSERROR;
+	if (status & CAN_ERR_BUSOFF)               frame->can_id |= CAN__ERR_BUSOFF;
+	if (status & CAN_ERR_RECEIVEBUF_OVERFLOW) {
+		frame->can_id |= CAN__ERR_CRTL;
+		frame->data[1] |= CAN__ERR_CRTL_RX_OVERFLOW;
+	}
+	if (status & CAN_ERR_TRANSMITBUF_OVERFLOW) {
+		frame->can_id |= CAN__ERR_CRTL;
+		frame->data[1] |= CAN__ERR_CRTL_TX_OVERFLOW;
+	}
+
+}
+
 void msg2frame(struct TCANMsg * msg, struct can_frame * frame)
 {
 	int i;
@@ -361,21 +385,29 @@ void run()
 		FD_SET(canFd, &readfds);
 		FD_SET(udpFd, &readfds);
 
+		usleep(5);
 		int ret = select(maxfd, &readfds, NULL, NULL, NULL);
-
-		/* received a CAN frame */
-		if (FD_ISSET(canFd, &readfds)) {
-			while (can_getRecMessages(canFd) > 0) {
-				if (can_readMessage(canFd, &msg) == sizeof(struct TCANMsg)) {
-					msg2frame(&msg, &frame);
-					udp_sendDatagram(udpFd, &frame, sizeof(struct can_frame));
+		if (ret > 0) {
+			/* received a CAN frame */
+			if (FD_ISSET(canFd, &readfds)) {
+				int n;
+				while ((n = can_getRecMessages(canFd)) > 0) {
+					if (can_readMessage(canFd, &msg) == sizeof(struct TCANMsg)) {
+						msg2frame(&msg, &frame);
+						udp_sendDatagram(udpFd, &frame, sizeof(struct can_frame));
+					}
 				}
 			}
-		}
-		if (FD_ISSET(udpFd, &readfds)) {
-			if (udp_readDatagram(udpFd, &frame, sizeof(frame)) == sizeof(struct can_frame)) {
-				frame2msg(&frame, &msg);
-				can_sendMessage(canFd, &msg);
+			if (FD_ISSET(udpFd, &readfds)) {
+				if (udp_readDatagram(udpFd, &frame, sizeof(frame)) == sizeof(struct can_frame)) {
+					if ((frame.can_id & CAN_ERR_FLAG) && (frame.can_id & CAN__ERR_RESTARTED)) {
+						can_Reset(canFd);
+						U2C_DEBUG("Restarted CAN bus\n");
+					} else {
+						frame2msg(&frame, &msg);
+						can_sendMessage(canFd, &msg);
+					}
+				}
 			}
 		}
 	}
