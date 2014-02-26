@@ -109,8 +109,15 @@ int can_setOnOff(int fd, unsigned char on)
 
 int can_Reset(int fd)
 {
+	int ret;
+	struct CANSettings cs;
+
 	can_setOnOff(fd, 0);
-	usleep(1000000);
+
+	ret = ioctl(fd, CAN_GET_SETTINGS, &cs);
+	usleep(100000);
+	ret = ioctl(fd, CAN_SET_SETTINGS, &cs);
+	usleep(500000);
 	can_setOnOff(fd, 1);
 }
 
@@ -154,6 +161,15 @@ int can_setTermination(int fd, unsigned char term)
 	if (ret < 0) {
 		CAN_DEBUG("can't set Termination:%d: %s\n", errno, strerror(errno));
 	}
+}
+
+int can_setDebugMode(int fd, unsigned char debug)
+{
+	int ret = ioctl( fd, CAN_SET_DEBUGMODE, debug);
+	if (ret < 0) {
+		CAN_DEBUG("can't set debug mode:%d: %s\n", errno, strerror(errno));
+	}
+
 }
 
 int can_sendMessage(int fd, struct TCANMsg *msg)

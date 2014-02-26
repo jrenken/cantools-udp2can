@@ -128,6 +128,12 @@ int can_setHighSpeed(int fd, unsigned char mode);
  */
 int can_setTermination(int fd, unsigned char term);
 
+/* Set debug mode (syslog)
+ *
+ */
+int can_setDebugMode(int fd, unsigned char debug);
+
+
 /* Set the debug LEDs
  *
  */

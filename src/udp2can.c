@@ -35,6 +35,7 @@ int canFastMode = 0;
 int canTermination = 0;
 unsigned long int	canFilterMask = 0;
 unsigned long int canFilterCode = 0;
+int canDebugMode = 0;
 
 int canFd = -1;
 int udpFd = -1;
@@ -51,106 +52,6 @@ void signalHandler(sig) /* signal handler function */
 			exit(0);
 			break;
 	}
-}
-
-
-void testCan(void)
-{
-	int fd;
-	int i;
-	unsigned char can_error;
-	struct DriverInfo info;
-	unsigned char mode = CAN_STANDARD;
-
-
-	printf("> Open device /dev/can0\n");
-	fd = can_openDevice("/dev/can0");
-	if (fd < 0)
-		return;
-
-	can_setOnOff(fd, 0);
-
-	if (can_getDriverInfo(fd, &info) == 1)  {
-	    printf("\nDriver info:\n");
-	    printf("Name: '%s'\n",  info.version);
-	    printf("Received since last parameter setting :%lu\n",   info.total_rcv);
-	    printf("Send since last parameter setting     :%lu\n",   info.total_snd);
-	    printf("CAN-msg. Receive buffer size          :%lu\n",   info.rcv_buffer_size);
-	    printf("CAN-msg. Send buffer size             :%lu\n\n", info.snd_buffer_size);
-	}
-
-	if (can_getStatus(fd, &can_error) == 1){
-		can_dumpStatus(can_error);
-	}
-
-	printf("> Set parameter\n");
-	can_setParameter(fd, CAN_STANDARD, 125, 0);
-	printf("> Driver on\n");
-
-
-
-//	printf("> Test Leds\n");
-//	can_setLed(fd, AUTO_LED_OFF);
-//
-//	for ( i = 0; i < 16; i++) {
-//		can_setLed(fd, (unsigned char) i);
-//		usleep(500000L);
-//	}
-//	can_setLed(fd, 0);
-	can_setLed(fd, AUTO_LED_ON);
-
-	can_setOnOff(fd, 1);
-
-
-	struct TCANMsg msg;
-	for (i = 0; i < 8; i++)
-		msg.DATA[i] = (unsigned char) i + 16;
-	msg.LEN = 8;
-	msg.RTR = 0;
-	for (i = 0; i < 32; i += 2) {
-		msg.ID = i + 64;
-		can_sendMessage(fd, &msg);
-
-		if (can_getStatus(fd, &can_error) == 1){
-			can_dumpStatus(can_error);
-		}
-	}
-	usleep(2000000L);
-
-	if (can_getStatus(fd, &can_error) == 1){
-		can_dumpStatus(can_error);
-	}
-	if (can_getDriverInfo(fd, &info) == 1)  {
-	    printf("\nDriver info:\n");
-	    printf("Name: '%s'\n",  info.version);
-	    printf("Received since last parameter setting :%lu\n",   info.total_rcv);
-	    printf("Send since last parameter setting     :%lu\n",   info.total_snd);
-	    printf("CAN-msg. Receive buffer size          :%lu\n",   info.rcv_buffer_size);
-	    printf("CAN-msg. Send buffer size             :%lu\n\n", info.snd_buffer_size);
-	  }
-
-	struct TCANMsgT msgT;
-	while (can_getRecMessages(fd) > 0) {
-		if (can_readMessageT(fd, &msgT) > 0) {
-			can_dumpMessageT(&msgT, mode);
-		}
-	}
-	can_setOnOff(fd, 0);
-	close(fd);
-}
-
-
-void testUdp()
-{
-	int i;
-	int fd = udp_openSocket(10510);
-	udp_setTarget("localhost", 20000);
-
-	for (i = 0; i < 100; i++) {
-		udp_sendDatagram(fd, "Hallo\n", 6);
-	}
-	usleep(2000000);
-	close(fd);
 }
 
 void setConfigValue(const char *key, const char* value)
@@ -189,13 +90,15 @@ void setConfigValue(const char *key, const char* value)
 			canFilterMask = flt;
 			U2C_DEBUG("Set canFilterCode: %08lx\n", canFilterMask);
 		}
-
 	} else if (!strcmp(key, "canFilterCode")) {
 		unsigned long int flt = strtol(value, &endPtr, 16);
 		if (value != endPtr) {
 			canFilterCode = flt;
 			U2C_DEBUG("Set canFilterCode: %08lx\n", canFilterCode);
 		}
+	} else if (!strcmp(key, "canDebugMode")) {
+		canDebugMode = atoi(value);
+		U2C_DEBUG("Set canDebugMode: %d\n", canDebugMode);
 
 	} else if (!strcmp(key, "udpPort")) {
 		unsigned short prt = strtol(value, &endPtr, 10);
@@ -266,6 +169,10 @@ int initCanDevice()
 	canFd = can_openDevice("/dev/can0");
 	if (canFd < 0)
 		return -1;
+
+	if (!debug) {
+		can_setDebugMode(canFd, canDebugMode);
+	}
 
 	if (canBTR == 0) {
 		if (can_setParameter(canFd, canMode, canBitrate, 0) < 0)
@@ -367,6 +274,8 @@ void frame2msg(struct can_frame * frame, struct TCANMsg * msg)
 	}
 	if (frame->can_id & CAN_RTR_FLAG)
 		msg->RTR = 1;
+	else
+		msg->RTR = 0;
 	for (i = 0; i < 8; i++)
 		msg->DATA[i] = frame->data[i];
 }
@@ -378,6 +287,8 @@ void run()
 
 	struct TCANMsg		msg;
 	struct	can_frame	frame;
+	unsigned char		status;
+	static unsigned char 	prevStatus = 0;
 
 	while (1) {
 
@@ -395,6 +306,17 @@ void run()
 					if (can_readMessage(canFd, &msg) == sizeof(struct TCANMsg)) {
 						msg2frame(&msg, &frame);
 						udp_sendDatagram(udpFd, &frame, sizeof(struct can_frame));
+					}
+				}
+				if (can_getStatus(canFd, &status) >= 0) {
+					status &= 0xFE;
+					if (status != prevStatus) {
+						U2C_DEBUG("Get Status: %d, %d\n", status, prevStatus);
+						prevStatus = status;
+						if (status != CAN_ERR_OK) {
+							createErrorFrame(&frame, status);
+							udp_sendDatagram(udpFd, &frame, sizeof(struct can_frame));
+						}
 					}
 				}
 			}
@@ -421,7 +343,7 @@ int main(int argc, char** argv)
 	while ((opt = getopt(argc, argv, "vdh")) != -1) {
 		switch(opt)  {
 		case 'v':
-			printf("udp2can V.01 " __DATE__ "\n(C) Marum, 2014\n");
+			printf("udp2can V.01 " __DATE__" " __TIME__ "\n(C) Marum, 2014\n   renken@marum.de\n");
 			exit(EXIT_SUCCESS);
 		case 'h':
 			printUsage();
@@ -453,6 +375,7 @@ int main(int argc, char** argv)
 		close(udpFd);
 		exit(EXIT_FAILURE);
 	}
+
 
 	if (debug == 0) {
 		/* Fork off the parent process */

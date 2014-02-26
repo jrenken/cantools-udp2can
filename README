@@ -1,0 +1,7 @@
+udp2can is a network to can bus gateway for running on synertronix CAN2Web Professional
+
+Building and installing
+1. create build directory
+2. in the build directory call:
+   cmake -DCMAKE_TOOLCHAIN_FILE=../Toolchain-can2web.cmake -DCMAKE_BUILD_TYPE=Release ..
+3. scp build/src/udp2can root@10.112.102.30:/usr/bin
