@@ -22,7 +22,7 @@ int 				udpDebug = 0;
 int 				udpRespond = 1;
 
 struct sockaddr		udpTarget;
-socklen_t			udpTargetAddrLen = 0;
+socklen_t			udpTargetAddrLen = sizeof(struct sockaddr);
 
 void udp_setDebug(int debug)
 {
@@ -54,7 +54,6 @@ int udp_openSocket(unsigned short port, int bcast)
 		UDP_DEBUG("can't bind UDP socket:%d: %s\n", errno, strerror(errno))
 		return fd;
 	}
-
 	UDP_DEBUG("Bind to port %d\n", port);
 	return fd;
 }

@@ -343,7 +343,7 @@ int main(int argc, char** argv)
 	while ((opt = getopt(argc, argv, "vdh")) != -1) {
 		switch(opt)  {
 		case 'v':
-			printf("udp2can V.01 " __DATE__" " __TIME__ "\n(C) Marum, 2014\n   renken@marum.de\n");
+			printf("udp2can V.02 " __DATE__" " __TIME__ "\n(C) Marum, 2014\n   renken@marum.de\n");
 			exit(EXIT_SUCCESS);
 		case 'h':
 			printUsage();

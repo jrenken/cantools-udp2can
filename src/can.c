@@ -111,14 +111,15 @@ int can_Reset(int fd)
 {
 	int ret;
 	struct CANSettings cs;
-
+	unsigned char	status;
 	can_setOnOff(fd, 0);
 
 	ret = ioctl(fd, CAN_GET_SETTINGS, &cs);
-	usleep(100000);
+	usleep(10000);
 	ret = ioctl(fd, CAN_SET_SETTINGS, &cs);
-	usleep(500000);
+	usleep(50000);
 	can_setOnOff(fd, 1);
+	can_getStatus(fd, &status);
 }
 
 int can_setLed(int fd, unsigned char led)
